@@ -23,13 +23,14 @@ using namespace Eigen;
         - rs: residual vector per iter, default arg is 0x0
 */
 // TODO: Rewrite as template to support float/double and streamlined dimensions?
-tuple<VectorXf, int, vector<float> > pcgSaad2003(const MatrixXf& A, const MatrixXf& b, float tol=1e-6f, int maxit=1000,
+tuple<VectorXf, size_t, vector<float> > pcgSaad2003(const MatrixXf& A, const MatrixXf& b, float tol=1e-6f, int maxit=1000,
                  MatrixXf M=MatrixXf(), VectorXf x0=VectorXf()) {
     
     // We can deduce n from A, assuming it is consistent
     assert(A.rows() == A.cols());
     int n = A.rows();
 
+    assert(n > 0);
     assert(b.rows() == n);
     assert(b.cols() == 1);
     
@@ -47,7 +48,7 @@ tuple<VectorXf, int, vector<float> > pcgSaad2003(const MatrixXf& A, const Matrix
     VectorXf xj = x0;
     VectorXf rj = b - A * xj;
 
-    // TODO: Wasn't sure what to use, so using Cholesky decomposition for A \ b operation
+    // Used Cholesky solver to abstract A \ b operator https://eigen.tuxfamily.org/dox/classEigen_1_1LDLT.html#title21
     VectorXf zj = M.ldlt().solve(rj);
     VectorXf pj = zj;
     float tolsq = tol * tol;
@@ -55,7 +56,8 @@ tuple<VectorXf, int, vector<float> > pcgSaad2003(const MatrixXf& A, const Matrix
     float res0 = res1;
     vector<float> rs = {res1};
 
-    for (int i = 0; i < maxit; i++) {
+    int i = 0;
+    for (i = 0; i < maxit; i++) {
         VectorXf Apj = A * pj;
         float aj = rj.dot(zj) / Apj.dot(pj);
         VectorXf xj1 = xj + aj * pj;
@@ -74,26 +76,38 @@ tuple<VectorXf, int, vector<float> > pcgSaad2003(const MatrixXf& A, const Matrix
         }
     }
 
-    return {xj, rs.size(), rs};
+    return {xj, i, rs};
 }
 
 int main() {
     const int n = 3;
-    // Test cases comparing to inbuilt solver(s) using random floats
-    MatrixXf A = MatrixXf::Random(n, n);
-    VectorXf b = VectorXf::Random(n);
+    
+    // Test cases comparing to inbuilt solver(s) using random floats. These many not be semi-positive definite, so we enforce
+    const MatrixXf A_r = MatrixXf::Random(n, n);
+    const VectorXf b_r = VectorXf::Random(n);
+    const MatrixXf A = A_r.transpose() * A_r;
+    const VectorXf b = A * VectorXf::Random(n);
+
+    cout << "A =" << endl << A << endl
+         << "b =" << endl << b << endl;
 
     // Inbuilt (Eigen::ConjugateGradient)
     ConjugateGradient<MatrixXf> cg;
     cg.compute(A);
     Vector<float, n> x_cgLU = cg.solve(b);
     cout << "Eigen Inbuilt Solver" << endl
-         << "x: " << x_cgLU << endl;
+         << "x:" << endl << x_cgLU << endl;
 
     // pcgSaad2003
     auto [x1, iter, rs] = pcgSaad2003(A, b);
-    cout << "pcgSaad2003: " << x1 << endl
-         << "Iterations: " << iter << endl;
+    cout << "pcgSaad2003: " << endl << x1 << endl
+         << "Iterations: " << iter << endl
+         << "Residuals:" << endl;
+    // Can't underflow, rs guaranteed size 1
+    for (size_t i = 0; i < rs.size() - 1; i++) {
+        cout << rs[i] << ", ";
+    }
+    cout << rs[rs.size() - 1] << endl;
 
     return 0;
 }
