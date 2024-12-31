@@ -7,7 +7,7 @@ using namespace std;
 using namespace Eigen;
 
 /*
-    Eigen / CPP Implementation of pcgSaad2003
+    Eigen / CPP Implementation of Preconditioned Conjugate Gradient (Saad, 2003)
     
     Given Ax = b, iteratively solve for x
     
@@ -20,9 +20,8 @@ using namespace Eigen;
     returns:
         - x: solution
         - iter: number of iterations
-        - rs: residual vector per iter, default arg is 0x0
+        - rs: vector of residuals
 */
-// TODO: Rewrite as template to support float/double and streamlined dimensions?
 tuple<VectorXf, size_t, vector<float> > pcgSaad2003(const MatrixXf& A, const MatrixXf& b, float tol=1e-6f, int maxit=1000,
                  MatrixXf M=MatrixXf(), VectorXf x0=VectorXf()) {
     
